@@ -1,5 +1,24 @@
 [![Torii Build Status](https://circleci.com/gh/Vestorly/torii.png?circle-token=9bdd2f37dbcb0be85f82a6b1ac61b9333b68625b "Torii Build Status")](https://circleci.com/gh/Vestorly/torii) [![Ember Observer Score](http://emberobserver.com/badges/torii.svg)](http://emberobserver.com/addons/torii)
 
+# SocialCode Torii override for Adaptive Storage (on Torii v 0.8.4)
+
+1. Environment config for Torii now requires an additional key: `allowedRedirectPaths`
+
+```JavaScript
+      torii: {
+        providers: {
+          //torii provider config. See Torii docs
+        },
+        allowedRedirectPaths: [
+          //string list of redirect paths your app will use for torii authentication
+        ]
+      }
+```
+
+2. Use `torii/mixins/application-route-mixin` in your application route for authentication redirect handling.
+
+3. Torii now has a storage service `torii-storage` which defaults to using `window.localStorage`, but you can override it with your own storage service by creating `/app/services/torii-storage` module that exports your own storage service.
+
 # Compatibility Matrix
 
 |  Torii    | Ember   | Ember-Data         |
@@ -407,7 +426,7 @@ export default Ember.Object.extend({
   // Create a new authorization.
   // When your code calls `this.get('torii').open('geocities', options)`,
   // the `options` will be passed to this provider's `open` method.
-  
+
   open: function(options) {
     return new Ember.RSVP.Promise(function(resolve, reject){
       // resolve with an authorization object
@@ -460,7 +479,7 @@ export default Ember.Route.extend({
         username: username,
         password: password
       };
-      
+
       this.get('torii').open(providerName, options).then(function(authorization){
         // authorization as returned by the provider
         route.somethingWithGeocitiesToken(authorization.sessionToken);

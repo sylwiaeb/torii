@@ -46,6 +46,9 @@ var Popup = Ember.Object.extend(Ember.Evented, UiServiceMixin, {
   },
 
   closeRemote: function(){
+    if (this.remote) {
+      this.remote.close();
+    }
   },
 
   pollRemote: function(){

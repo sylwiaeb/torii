@@ -13,6 +13,8 @@ function parseMessage(url, keys){
 
 var ServicesMixin = Ember.Mixin.create({
 
+  toriiStorage: Ember.inject.service(),
+
   init: function(){
     this._super.apply(this, arguments);
     this.remoteIdGenerator = this.remoteIdGenerator || UUIDGenerator;
@@ -31,7 +33,8 @@ var ServicesMixin = Ember.Mixin.create({
   //
   open: function(url, keys, options){
     var service   = this,
-        lastRemote = this.remote;
+        lastRemote = this.remote,
+        toriiStorage = this.get('toriiStorage');
 
     return new Ember.RSVP.Promise(function(resolve, reject){
       if (lastRemote) {
@@ -41,7 +44,7 @@ var ServicesMixin = Ember.Mixin.create({
       var remoteId = service.remoteIdGenerator.generate();
 
       var pendingRequestKey = PopupIdSerializer.serialize(remoteId);
-      localStorage.setItem(CURRENT_REQUEST_KEY, pendingRequestKey);
+      toriiStorage.setItem(CURRENT_REQUEST_KEY, pendingRequestKey);
 
 
       service.openRemote(url, pendingRequestKey, options);
@@ -62,39 +65,46 @@ var ServicesMixin = Ember.Mixin.create({
           'remote could not open or was closed'));
         return;
       }
+      /**
+       * commenting out rejection on close. Sometimes causes race condition - does more harm than good.
+       * Without it, closing the popup without authenticating doesn’t reject/display error message, which is fine.
+       */
 
-      service.one('didClose', function(){
-        var pendingRequestKey = localStorage.getItem(CURRENT_REQUEST_KEY);
-        if (pendingRequestKey) {
-          localStorage.removeItem(pendingRequestKey);
-          localStorage.removeItem(CURRENT_REQUEST_KEY);
-        }
-        // If we don't receive a message before the timeout, we fail. Normally,
-        // the message will be received and the window will close immediately.
-        service.timeout = Ember.run.later(service, function() {
-          reject(new Error("remote was closed, authorization was denied, or a authentication message otherwise not received before the window closed."));
-        }, 100);
-      });
+      // service.one('didClose', function(){
+      //   var pendingRequestKey = toriiStorage.getItem(CURRENT_REQUEST_KEY);
+      //   if (pendingRequestKey) {
+      //     toriiStorage.removeItem(pendingRequestKey);
+      //     toriiStorage.removeItem(CURRENT_REQUEST_KEY);
+      //   }
+      //   // If we don't receive a message before the timeout, we fail. Normally,
+      //   // the message will be received and the window will close immediately.
+      //   service.timeout = Ember.run.later(service, function() {
+      //     reject(new Error("remote was closed, authorization was denied, or a authentication message otherwise not received before the window closed."));
+      //   }, 100);
+      // });
 
-      Ember.$(window).on('storage.torii', function(event){
-        var storageEvent = event.originalEvent;
+      service.storageUpdatedHandler = function(storage) {
+        const currentKey = storage[CURRENT_REQUEST_KEY];
+        const newValue = storage[currentKey];
 
-        var remoteIdFromEvent = PopupIdSerializer.deserialize(storageEvent.key);
-        if (remoteId === remoteIdFromEvent){
-          var data = parseMessage(storageEvent.newValue, keys);
-          localStorage.removeItem(storageEvent.key);
+        if ( newValue ) {
+          const data = parseMessage(newValue, keys);
+          toriiStorage.removeItem(currentKey);
+          toriiStorage.removeItem(CURRENT_REQUEST_KEY);
           Ember.run(function() {
             resolve(data);
           });
         }
-      });
+      };
+
+      toriiStorage.on('storageUpdated', service.storageUpdatedHandler);
 
 
     }).finally(function(){
       // didClose will reject this same promise, but it has already resolved.
       service.close();
 
-      Ember.$(window).off('storage.torii');
+      toriiStorage.off('storageUpdated', service.storageUpdatedHandler);
     });
   },
 
