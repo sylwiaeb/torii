@@ -11,6 +11,7 @@ export default Ember.Mixin.create({
     } else {
       return route.checkLogin(transition);
     }
+    this._super(...arguments);
   },
   checkLogin: function () {
     let configuration = getConfiguration();

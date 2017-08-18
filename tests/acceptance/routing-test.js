@@ -4,6 +4,7 @@ import lookup from '../helpers/lookup';
 import Router from 'dummy/router';
 import QUnit from 'qunit';
 import Ember from 'ember';
+import ToriiAppRouteMixin from 'torii/mixins/application-route-mixin';
 
 let { module, test } = QUnit;
 
@@ -34,7 +35,7 @@ test('ApplicationRoute#checkLogin is not called when no authenticated routes are
       routesConfigured = true;
     },
     setup: function() {
-      app.register('route:application', Ember.Route.extend());
+      app.register('route:application', Ember.Route.extend(ToriiAppRouteMixin));
     }
   });
   var applicationRoute = lookup(app, 'route:application');
@@ -61,7 +62,7 @@ test('ApplicationRoute#checkLogin is called when an authenticated route is prese
       this.authenticatedRoute('account');
     },
     setup: function() {
-      app.register('route:application', Ember.Route.extend());
+      app.register('route:application', Ember.Route.extend(ToriiAppRouteMixin));
       app.register('route:account', Ember.Route.extend());
     }
   });
@@ -90,7 +91,7 @@ test('ApplicationRoute#checkLogin returns the correct name of the session variab
       this.authenticatedRoute('account');
     },
     setup: function() {
-      app.register('route:application', Ember.Route.extend());
+      app.register('route:application', Ember.Route.extend(ToriiAppRouteMixin));
       app.register('route:account', Ember.Route.extend());
     }
   });
@@ -118,7 +119,7 @@ test('authenticated routes get authenticate method', function(assert){
       this.authenticatedRoute('account');
     },
     setup: function() {
-      app.register('route:application', Ember.Route.extend());
+      app.register('route:application', Ember.Route.extend(ToriiAppRouteMixin));
       app.register('route:account', Ember.Route.extend());
       app.register('route:home', Ember.Route.extend());
     }
@@ -160,7 +161,7 @@ test('session.attemptedTransition is set before redirecting away from authentica
       this.authenticatedRoute('secret');
     },
     setup: function() {
-      app.register('route:application', Ember.Route.extend());
+      app.register('route:application', Ember.Route.extend(ToriiAppRouteMixin));
       app.register('route:secret', Ember.Route.extend());
     }
   });
