@@ -1,8 +1,6 @@
 import UiServiceMixin from 'torii/mixins/ui-service-mixin';
 import UUIDGenerator from 'torii/lib/uuid-generator';
 
-var on = Ember.on;
-
 function stringifyOptions(options){
   var optionsStrings = [];
   for (var key in options) {
@@ -41,22 +39,14 @@ var Popup = Ember.Object.extend(Ember.Evented, UiServiceMixin, {
 
   // Open a popup window.
   openRemote: function(url, pendingRequestKey, options){
-    var optionsString = stringifyOptions(prepareOptions(options || {}));
+    const optionsString = stringifyOptions(prepareOptions(options || {}));
     this.remote = window.open(url, pendingRequestKey, optionsString);
   },
 
   closeRemote: function(){
-    if (this.remote) {
-      this.remote.close();
-    }
-  },
-
-  pollRemote: function(){
-    if (!this.remote) {
-      return;
-    }
-    if (this.remote.closed) {
-      this.trigger('didClose');
+    const remote = this.remote;
+    if ( remote ) {
+      remote.close();
     }
   }
 

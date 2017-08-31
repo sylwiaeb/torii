@@ -1,8 +1,6 @@
 import Ember from 'ember';
-import { CURRENT_REQUEST_KEY } from "./ui-service-mixin";
 
 export default Ember.Mixin.create({
-  toriiStorage: Ember.inject.service(),
 
   beforeModel() {
     this.handleRedirect(...arguments);
@@ -12,18 +10,17 @@ export default Ember.Mixin.create({
   /**
    * Setup that was done in 'torii/addon/redirect-handler' and
    * 'torii/app/initializers/initialize-torii-callback' is now handled here
-   * for Adapative Storage support
+   * to not use localStorage
    */
   handleRedirect(transition) {
-    const toriiStorage = this.get('toriiStorage');
-    const pendingRequestKey = toriiStorage.getItem(CURRENT_REQUEST_KEY);
     const allowedRedirectPaths = Ember.getOwner(this).resolveRegistration('config:environment').torii.allowedRedirectPaths;
-    if ( pendingRequestKey &&
-      allowedRedirectPaths.includes(window.location.pathname.replace(/\/$/, "")))
-    {
-      toriiStorage.setItem(pendingRequestKey, window.location.toString());
+    if ( allowedRedirectPaths.includes(window.location.pathname.replace(/\/$/, ""))) {
       transition.abort();
-      window.close();
+      let opener = window.opener;
+      let location = window.location;
+      if ( opener ) {
+        opener.postMessage({ url: location.toString() }, location.origin);
+      }
     }
 
   },

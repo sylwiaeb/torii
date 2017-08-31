@@ -1,6 +1,8 @@
 [![Torii Build Status](https://circleci.com/gh/Vestorly/torii.png?circle-token=9bdd2f37dbcb0be85f82a6b1ac61b9333b68625b "Torii Build Status")](https://circleci.com/gh/Vestorly/torii) [![Ember Observer Score](http://emberobserver.com/badges/torii.svg)](http://emberobserver.com/addons/torii)
 
-# SocialCode Torii override for Adaptive Storage (on Torii v 0.8.4)
+# SocialCode Torii override to not use localStorage and fix bugs (on Torii v 0.8.4)
+
+This was done to support Safari private browser pre-v11. Changes also include other bug fixes, which may have been fixed in Torii upstream after v0.8.4.
 
 1. Environment config for Torii now requires an additional key: `allowedRedirectPaths`
 
@@ -15,9 +17,8 @@
       }
 ```
 
-2. Use `torii/mixins/application-route-mixin` in your application route for authentication redirect handling.
+2. Use `torii/mixins/application-route-mixin` in your application route for authentication redirect handling. (If using HAK, this is already mixed into HAK's application route mixin).
 
-3. Torii now has a storage service `torii-storage` which defaults to using `window.localStorage`, but you can override it with your own storage service by creating `/app/services/torii-storage` module that exports your own storage service.
 
 # Compatibility Matrix
 

@@ -13,11 +13,10 @@ function parseMessage(url, keys){
 
 var ServicesMixin = Ember.Mixin.create({
 
-  toriiStorage: Ember.inject.service(),
-
-  init: function(){
+  init() {
     this._super.apply(this, arguments);
     this.remoteIdGenerator = this.remoteIdGenerator || UUIDGenerator;
+    this.on('didClose', this.cleanUp);
   },
 
   // Open a remote window. Returns a promise that resolves or rejects
@@ -31,115 +30,100 @@ var ServicesMixin = Ember.Mixin.create({
   //
   // Services that use this mixin should implement openRemote
   //
-  open: function(url, keys, options){
-    var service   = this,
-        lastRemote = this.remote,
-        toriiStorage = this.get('toriiStorage');
+  open(url, keys, options) {
 
-    return new Ember.RSVP.Promise(function(resolve, reject){
-      if (lastRemote) {
-        service.close();
+    return new Ember.RSVP.Promise((resolve, reject) => {
+      if (this.remote) {
+        this.close();
       }
 
-      var remoteId = service.remoteIdGenerator.generate();
+      const remoteId = this.remoteIdGenerator.generate();
+      const pendingRequestKey = PopupIdSerializer.serialize(remoteId);
 
-      var pendingRequestKey = PopupIdSerializer.serialize(remoteId);
-      toriiStorage.setItem(CURRENT_REQUEST_KEY, pendingRequestKey);
+      this.openRemote(url, pendingRequestKey, options);
 
+      window.addEventListener('beforeunload', () => {
+        Ember.run( () => {
+          this.close();
+        });
+      });
 
-      service.openRemote(url, pendingRequestKey, options);
-      service.schedulePolling();
-
-      var onbeforeunload = window.onbeforeunload;
-      window.onbeforeunload = function() {
-        if (typeof onbeforeunload === 'function') {
-          onbeforeunload();
-        }
-        service.close();
-      };
-
-      if (service.remote && !service.remote.closed) {
-        service.remote.focus();
+      const remote = this.remote;
+      if (remote && !remote.closed) {
+        remote.focus();
+        this.schedulePolling();
+        this.scheduleTimeout();
       } else {
         reject(new Error(
           'remote could not open or was closed'));
         return;
       }
-      /**
-       * commenting out rejection on close. Sometimes causes race condition - does more harm than good.
-       * Without it, closing the popup without authenticating doesn’t reject/display error message, which is fine.
-       */
 
-      // service.one('didClose', function(){
-      //   var pendingRequestKey = toriiStorage.getItem(CURRENT_REQUEST_KEY);
-      //   if (pendingRequestKey) {
-      //     toriiStorage.removeItem(pendingRequestKey);
-      //     toriiStorage.removeItem(CURRENT_REQUEST_KEY);
-      //   }
-      //   // If we don't receive a message before the timeout, we fail. Normally,
-      //   // the message will be received and the window will close immediately.
-      //   service.timeout = Ember.run.later(service, function() {
-      //     reject(new Error("remote was closed, authorization was denied, or a authentication message otherwise not received before the window closed."));
-      //   }, 100);
-      // });
-
-      service.storageUpdatedHandler = function(storage) {
-        const currentKey = storage[CURRENT_REQUEST_KEY];
-        const newValue = storage[currentKey];
-
-        if ( newValue ) {
-          const data = parseMessage(newValue, keys);
-          toriiStorage.removeItem(currentKey);
-          toriiStorage.removeItem(CURRENT_REQUEST_KEY);
-          Ember.run(function() {
+      this.requestChangeListener = (e) => {
+        if ( e.origin !== window.location.origin ) { return; }
+        const url = e.data.url;
+        if ( url ) {
+          const data = parseMessage(url, keys);
+          Ember.run(() => {
             resolve(data);
           });
         }
       };
 
-      toriiStorage.on('storageUpdated', service.storageUpdatedHandler);
+      window.addEventListener('message', this.requestChangeListener);
 
-
-    }).finally(function(){
-      // didClose will reject this same promise, but it has already resolved.
-      service.close();
-
-      toriiStorage.off('storageUpdated', service.storageUpdatedHandler);
+    }).finally(() => {
+      this.close();
     });
   },
 
-  close: function(){
-    if (this.remote) {
+  close() {
+    if ( this.remote ) {
       this.closeRemote();
-      this.remote = null;
       this.trigger('didClose');
     }
-    this.cleanUp();
   },
 
-  cleanUp: function(){
-    this.clearTimeout();
+  cleanUp() {
+    Ember.run(() => {
+      this.remote = null;
+      window.removeEventListener('message', this.requestChangeListener);
+      this.cancelTimeout();
+    });
   },
 
 
-  schedulePolling: function(){
-    this.polling = Ember.run.later(this, function(){
-      this.pollRemote();
-      this.schedulePolling();
-    }, 35);
+  schedulePolling() {
+    const remote = this.remote;
+    const service = this;
+    if ( remote ) {
+      if ( remote.closed ) {
+        this.trigger('didClose');
+      } else {
+        Ember.run.later(service, function() {
+          this.schedulePolling();
+        }, 500);
+      }
+    }
   },
 
-  // Clear the timeout, in case it hasn't fired.
-  clearTimeout: function(){
-    Ember.run.cancel(this.timeout);
-    this.timeout = null;
+  scheduleTimeout() {
+    const service = this;
+    this.timeout = Ember.run.later(service, function() {
+      //Not rejecting authentication since user may have logged in using another tab's popup.
+      //Rejecting would log the user out.
+      Ember.Logger.warn('Timeout. Closing Google Authentication window.');
+      this.close();
+    }, 300000);
   },
 
-  stopPolling: on('didClose', function(){
-    Ember.run.cancel(this.polling);
-  })
-
-
+  cancelTimeout() {
+    let  timeout = this.timeout;
+    if ( timeout ) {
+      Ember.run.cancel( timeout );
+      timeout =null;
+    }
+  }
 
 });
 
