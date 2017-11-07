@@ -30,7 +30,7 @@ var ServicesMixin = Ember.Mixin.create({
   //
   // Services that use this mixin should implement openRemote
   //
-  open(url, keys, options) {
+  open(url, keys, options = {}) {
 
     return new Ember.RSVP.Promise((resolve, reject) => {
       if (this.remote) {
@@ -40,7 +40,13 @@ var ServicesMixin = Ember.Mixin.create({
       const remoteId = this.remoteIdGenerator.generate();
       const pendingRequestKey = PopupIdSerializer.serialize(remoteId);
 
-      this.openRemote(url, pendingRequestKey, options);
+      //start popup with same origin for IE 11 window messaging to work.
+      //let the popup do the redirect to the OAuth provider.
+      const { preAuthPath } = options;
+      const remoteUrl = preAuthPath ?
+        `${window.location.origin}${preAuthPath}?authUrl=${encodeURIComponent(url)}` :
+        url;
+      this.openRemote(remoteUrl, pendingRequestKey, options);
 
       window.addEventListener('beforeunload', () => {
         Ember.run( () => {
@@ -70,7 +76,7 @@ var ServicesMixin = Ember.Mixin.create({
         }
       };
 
-      window.addEventListener('message', this.requestChangeListener);
+      window.addEventListener('message', this.requestChangeListener, false);
 
     }).finally(() => {
       this.close();
